@@ -71,7 +71,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
                 }`}
               >
                 <span className={isSelected ? 'text-white' : 'text-neutral-500'}>
-                  {getIcon(cat.iconName)}
+                  {getIcon(cat.icon_name)}
                 </span>
                 <span>{cat.name}</span>
                 {cat.id !== 'all' && (
@@ -82,7 +82,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
                         : 'bg-neutral-200 text-neutral-600'
                     }`}
                   >
-                    {cat.itemCount}
+                    {cat.CategoryCount}
                   </span>
                 )}
               </button>

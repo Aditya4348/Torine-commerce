@@ -27,8 +27,8 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  iconName: string;
-  itemCount: number;
+  icon_name: string;
+  CategoryCount: number;
 }
 
 export interface FilterState {

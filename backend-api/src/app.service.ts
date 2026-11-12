@@ -5,10 +5,6 @@ import { PrismaService } from './prisma/prisma.service.js';
 export class AppService {
 
   constructor(private readonly prisma: PrismaService) {}
-
-  async findAll(){
-    return this.prisma.category.findMany();
-  }
   
 
 

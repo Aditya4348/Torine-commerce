@@ -11,6 +11,8 @@ import { FloatingAiChat } from './components/FloatingAiChat';
 import { CartDrawer, type CartItem } from './components/CartDrawer';
 import { Footer } from './components/Footer';
 import { SlidersHorizontal } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { storeApi } from './services/storeApi';
 
 const INITIAL_FILTERS: FilterState = {
   searchQuery: '',
@@ -28,6 +30,11 @@ function App() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  const DataCategory = useQuery({
+    queryKey: ["category"],
+    queryFn: storeApi.getCategories,
+  })
 
   // Handle filter changes
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
@@ -168,7 +175,7 @@ function App() {
 
           {/* 3. Kategori di bawah Banner */}
           <CategoryBar
-            categories={CATEGORIES}
+            categories={DataCategory.data ?? CATEGORIES}
             selectedCategory={filters.selectedCategory}
             onSelectCategory={(categoryId) => handleFilterChange({ selectedCategory: categoryId })}
           />
