@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Query } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { Product as ProductEntity } from './entities/product.entity.js';
@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { promises } from 'node:dns';
 import { Prisma } from '../generated/prisma/client.js';
 import { productSummarySelect } from './selectors/product.selector.js';
+import { PaginationQueryDto, PaginatedResult, paginate } from '../common/pagination/index.js';
 
 @Injectable()
 export class ProductsService {
@@ -15,15 +16,18 @@ export class ProductsService {
     return 'This action adds a new product';
   }
 
-  async findAll(): Promise<ProductEntity[]> {
-    const Products = await this.prisma.product.findMany({
+  async findAll(paginationQuery: PaginationQueryDto): Promise<PaginatedResult<ProductEntity>> {
+    const result = await paginate(this.prisma.product, paginationQuery, {
       where: {
         is_in_stock: true,
       },
       select: productSummarySelect
-    });
+    })
 
-    return Products.map((cat) => new ProductEntity(cat));
+    return {
+      ...result,
+      data: result.data.map((cat) => new ProductEntity(cat)),
+    };
   }
 
   async findOne(id: string): Promise<ProductEntity> {
