@@ -9,6 +9,7 @@ export const productSummarySelect = {
   sale_price: true,
   is_in_stock: true,
   is_popular: true,
+  description: true,
   is_new: true,
   category: {
     select: {

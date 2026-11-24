@@ -20,6 +20,9 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   onAddToCart,
   onSelectProduct,
 }) => {
+
+  console.log('products', products)
+
   return (
     <div className="w-full space-y-4">
       {/* Controls Bar */}
@@ -45,7 +48,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             <option value="featured">Koleksi Utama</option>
             <option value="price-asc">Harga: Rendah ke Tinggi</option>
             <option value="price-desc">Harga: Tinggi ke Rendah</option>
-            <option value="rating">Rating Tertinggi</option>
           </select>
         </div>
       </div>

@@ -28,7 +28,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const totalAmount = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.product.sale_price * item.quantity,
     0
   );
 
@@ -68,7 +68,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 className="flex gap-3.5 p-3 rounded-2xl border border-neutral-100 hover:border-neutral-200 transition-colors"
               >
                 <img
-                  src={product.image}
+                  src={product.images?.[0].image_url}
                   alt={product.name}
                   className="w-18 h-18 rounded-xl object-cover bg-neutral-100 shrink-0"
                 />
@@ -78,7 +78,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       {product.name}
                     </h4>
                     <p className="text-xs font-bold text-neutral-800">
-                      {formatRupiah(product.price)}
+                      {formatRupiah(product.sale_price)}
                     </p>
                   </div>
 

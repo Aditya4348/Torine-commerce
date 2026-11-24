@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/axios';
-import type { Category, Product } from '../types';
+import type { Category, Product, ProductDetail } from '../types';
 
 export interface ProductQueryParams {
   search?: string;
@@ -7,7 +7,19 @@ export interface ProductQueryParams {
   minPrice?: number;
   maxPrice?: number;
   onlyInStock?: boolean;
-  sortBy?: 'featured' | 'price-asc' | 'price-desc' | 'rating';
+  sortBy?: 'featured' | 'price-asc' | 'price-desc';
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 
 export interface CreateOrderPayload {
@@ -30,13 +42,13 @@ export const storeApi = {
     return data;
   },
 
-  getProducts: async (params?: ProductQueryParams): Promise<Product[]> => {
-    const { data } = await apiClient.get<Product[]>('/products', { params });
+  getProducts: async (params?: ProductQueryParams): Promise<PaginatedResponse<Product>> => {
+    const { data } = await apiClient.get<PaginatedResponse<Product>>('/products', { params });
     return data;
   },
 
-  getProductById: async (id: string): Promise<Product> => {
-    const { data } = await apiClient.get<Product>(`/products/${id}`);
+  getProductById: async (id: string): Promise<ProductDetail> => {
+    const { data } = await apiClient.get<ProductDetail>(`/products/${id}`);
     return data;
   },
 

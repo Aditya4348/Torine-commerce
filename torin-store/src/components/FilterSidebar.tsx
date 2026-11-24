@@ -1,10 +1,10 @@
 import React from 'react';
-import { Filter, RotateCcw, Star, Check } from 'lucide-react';
+import { Filter, RotateCcw, Check } from 'lucide-react';
 import type { Category, FilterState } from '../types';
 import { formatRupiah } from '../utils/formatters';
 
 interface FilterSidebarProps {
-  categories: Category[];
+  categories: Category[] | undefined;
   filters: FilterState;
   onFilterChange: (newFilters: Partial<FilterState>) => void;
   onResetFilters: () => void;
@@ -22,8 +22,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     filters.selectedCategory !== 'all' ||
     filters.minPrice > 0 ||
     filters.maxPrice < 3000000 ||
-    filters.minRating > 0 ||
     filters.onlyInStock;
+
+    console.log("categori", categories)
 
   return (
     <aside className="w-full bg-white rounded-2xl border border-neutral-200/80 p-5 shadow-xs sticky top-24 space-y-6 text-left">
@@ -51,7 +52,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           Kategori
         </h4>
         <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-          {categories.map((cat) => {
+          {(categories ?? []).map((cat) => {
             const isSelected = filters.selectedCategory === cat.id;
             return (
               <button
@@ -71,7 +72,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         : 'border-neutral-300 bg-white'
                     }`}
                   >
-                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    {isSelected && <Check className="w-2.5 h-2.5 stroke-3" />}
                   </div>
                   <span className="truncate">{cat.name}</span>
                 </div>
@@ -81,7 +82,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                       isSelected ? 'text-neutral-300' : 'text-neutral-400'
                     }`}
                   >
-                    ({cat.itemCount})
+                    ({cat.CategoryCount})
                   </span>
                 )}
               </button>
@@ -124,45 +125,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
               Rp 0
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Minimum Rating Filter */}
-      <div className="space-y-3 pt-4 border-t border-neutral-100">
-        <h4 className="text-xs font-semibold text-neutral-900 uppercase tracking-wider">
-          Rating Minimum
-        </h4>
-        <div className="space-y-1.5">
-          {[4.8, 4.5, 4.0, 0].map((rating) => {
-            const isSelected = filters.minRating === rating;
-            return (
-              <button
-                key={rating}
-                onClick={() => onFilterChange({ minRating: rating })}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-neutral-900 text-white font-medium'
-                    : 'text-neutral-600 hover:bg-neutral-100'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Star
-                    className={`w-3.5 h-3.5 ${
-                      rating > 0
-                        ? isSelected
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'fill-amber-400 text-amber-400'
-                        : 'text-neutral-400'
-                    }`}
-                  />
-                  <span>
-                    {rating === 0 ? 'Semua Rating' : `${rating} ke atas`}
-                  </span>
-                </div>
-                {isSelected && <Check className="w-3 h-3 text-white" />}
-              </button>
-            );
-          })}
         </div>
       </div>
 

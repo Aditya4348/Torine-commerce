@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   ArrowLeft, 
   Star, 
@@ -12,50 +12,122 @@ import {
   Share2,
   Heart
 } from 'lucide-react';
-import type { Product } from '../types';
+import type {
+  Product,
+  ProductDetail as ProductDetailData,
+  ProductDetailView,
+  ProductVariant,
+} from '../types';
 import { formatRupiah } from '../utils/formatters';
 import { ProductCard } from './ProductCard';
+import { useProductDetailQuery } from '../hooks/useStoreQueries';
 
 interface ProductDetailProps {
-  product: Product;
+  productId: string;
   allProducts: Product[];
   onBack: () => void;
   onAddToCart: (product: Product, quantity?: number) => void;
   onSelectProduct: (product: Product) => void;
 }
 
+
+
+function getAvailableSizes(variants: ProductVariant[], colorName: string) {
+  return [
+    ...new Set(
+      variants
+        .filter((variant) => variant.color_name === colorName)
+        .map((variant) => variant.size_label)
+        .filter((size): size is string => Boolean(size)),
+    ),
+  ];
+}
+
+function toProductDetailView(product: ProductDetailData): ProductDetailView {
+  const colors: ProductDetailView['colors'] = [];
+
+  for (const variant of product.variants ?? []) {
+    if (variant.color_name && !colors.some((color) => color.name === variant.color_name)) {
+      colors.push({
+        name: variant.color_name,
+        hex: variant.color_hex ?? '#000000',
+      });
+    }
+
+  }
+
+  return {
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    price: product.sale_price ?? product.base_price,
+    originalPrice: product.base_price,
+    image: product.images[0]?.image_url ?? '',
+    gallery: product.images.map((image) => image.image_url),
+    isNew: Boolean(product.is_new),
+    sku: product.sku,
+    rating: product.rating ?? 0,
+    reviewsCount: product.reviewsCount ?? 0,
+    description: product.summary ?? product.description ?? '',
+    fullDescription: product.description,
+    inStock: product.is_in_stock,
+    colors,
+    variants: product.variants ?? [],
+    specifications: (product.specifications ?? []).map((spec) => ({
+      label: spec.spec_label,
+      value: spec.spec_value,
+    })),
+  };
+}
+
 export const ProductDetail: React.FC<ProductDetailProps> = ({
-  product,
+  productId,
   allProducts,
   onBack,
   onAddToCart,
   onSelectProduct,
 }) => {
-  const [selectedImage, setSelectedImage] = useState<string>(
-    product.gallery && product.gallery.length > 0 ? product.gallery[0] : product.image
+  const productQuery = useProductDetailQuery(productId);
+  const apiProduct = productQuery.data;
+  const product = useMemo(
+    () => (apiProduct ? toProductDetailView(apiProduct) : undefined),
+    [apiProduct],
   );
-  const [selectedColor, setSelectedColor] = useState<string>(
-    product.colors && product.colors.length > 0 ? product.colors[0].name : ''
-  );
-  const [selectedSize, setSelectedSize] = useState<string>(
-    product.sizes && product.sizes.length > 0 ? product.sizes[0] : ''
-  );
+
+  console.log("productDetail", product)
+  const [selectedImage, setSelectedImage] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'shipping'>('desc');
   const [isCopied, setIsCopied] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
-  const images = product.gallery && product.gallery.length > 0 ? product.gallery : [product.image];
+  useEffect(() => {
+    if (!product) return;
+    setSelectedImage(product.gallery[0] ?? product.image);
+    const initialColor = product.colors[0]?.name ?? '';
+    setSelectedColor(initialColor);
+    setSelectedSize(getAvailableSizes(product.variants, initialColor)[0] ?? '');
+    setQuantity(1);
+  }, [product]);
+
+  const images = product?.gallery.length ? product.gallery : product ? [product.image] : [];
+  const availableSizes = product
+    ? getAvailableSizes(product.variants, selectedColor)
+    : [];
 
   // Related products from same category, excluding current product
-  const relatedProducts = allProducts
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 3);
+  const relatedProducts = product
+    ? allProducts
+        .filter((p) => p.category.id === product.category.id && p.id !== product.id)
+        .slice(0, 3)
+    : [];
 
   const handleAddToCart = () => {
-    if (!product.inStock) return;
-    onAddToCart(product, quantity);
+    if (!apiProduct?.is_in_stock) return;
+    onAddToCart(apiProduct, quantity);
     setAddedSuccess(true);
     setTimeout(() => setAddedSuccess(false), 1500);
   };
@@ -67,6 +139,22 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
       setTimeout(() => setIsCopied(false), 2000);
     }
   };
+
+  if (productQuery.isPending) {
+    return <p className="py-16 text-center text-sm text-neutral-500">Memuat detail produk...</p>;
+  }
+
+  if (productQuery.isError) {
+    return (
+      <div role="alert" className="py-16 text-center text-sm text-red-600">
+        Gagal memuat detail produk: {productQuery.error.message}
+      </div>
+    );
+  }
+
+  if (!product || !apiProduct) {
+    return <p className="py-16 text-center text-sm text-neutral-500">Produk tidak ditemukan.</p>;
+  }
 
   return (
     <div className="w-full bg-[#fbfbfa] min-h-screen text-left pb-16">
@@ -84,7 +172,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
           <div className="flex items-center gap-2 text-xs text-neutral-400 font-mono">
             <span>Torin</span>
             <span>/</span>
-            <span className="capitalize">{product.category.replace('-', ' ')}</span>
+            <span className="capitalize">{product.category.name}</span>
             <span>/</span>
             <span className="text-neutral-700 truncate max-w-xs">{product.name}</span>
           </div>
@@ -95,7 +183,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
           {/* Left Column: Gallery & Visuals */}
           <div className="lg:col-span-7 space-y-4">
             {/* Main Stage Image */}
-            <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-white border border-neutral-200/80 shadow-xs">
+            <div className="relative aspect-4/3 rounded-3xl overflow-hidden bg-white border border-neutral-200/80 shadow-xs">
               <img
                 src={selectedImage}
                 alt={product.name}
@@ -234,11 +322,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
                   <span className="font-semibold text-neutral-900">Pilihan Warna:</span>
                   <span className="text-neutral-500 font-medium">{selectedColor}</span>
                 </div>
-                <div className="flex gap-2">
+              <div className="flex gap-2">
                   {product.colors.map((c) => (
                     <button
                       key={c.name}
-                      onClick={() => setSelectedColor(c.name)}
+                      onClick={() => {
+                        setSelectedColor(c.name);
+                        setSelectedSize(getAvailableSizes(product.variants, c.name)[0] ?? '');
+                      }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                         selectedColor === c.name
                           ? 'border-neutral-950 bg-neutral-950 text-white shadow-xs'
@@ -257,18 +348,18 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
             )}
 
             {/* Size Selector */}
-            {product.sizes && product.sizes.length > 0 && (
+            {availableSizes.length > 0 && (
               <div className="space-y-2.5">
                 <div className="flex justify-between text-xs">
                   <span className="font-semibold text-neutral-900">Pilihan Ukuran:</span>
                   <span className="text-neutral-400 underline cursor-pointer text-[11px]">Panduan Ukuran</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((sz) => (
+                  {availableSizes.map((sz) => (
                     <button
                       key={sz}
                       onClick={() => setSelectedSize(sz)}
-                      className={`min-w-[44px] h-10 px-3 rounded-xl border text-xs font-semibold font-mono transition-all cursor-pointer ${
+                      className={`min-w-11 h-10 px-3 rounded-xl border text-xs font-semibold font-mono transition-all cursor-pointer ${
                         selectedSize === sz
                           ? 'border-neutral-950 bg-neutral-950 text-white'
                           : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300'
@@ -335,7 +426,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
               <button
                 onClick={() => {
                   if (!product.inStock) return;
-                  onAddToCart(product, quantity);
+                  onAddToCart(apiProduct, quantity);
                   alert(`Memproses checkout langsung untuk ${quantity}x ${product.name}`);
                 }}
                 disabled={!product.inStock}
@@ -381,15 +472,15 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
               </div>
 
               {/* Tab Content */}
-              <div className="text-xs text-neutral-600 leading-relaxed min-h-[120px]">
+              <div className="text-xs text-neutral-600 leading-relaxed min-h-30">
                 {activeTab === 'desc' && (
                   <p>{product.fullDescription || product.description}</p>
                 )}
 
                 {activeTab === 'specs' && (
                   <div className="space-y-2">
-                    {product.specs && product.specs.length > 0 ? (
-                      product.specs.map((s, idx) => (
+                    {product.specifications && product.specifications.length > 0 ? (
+                      product.specifications.map((s, idx) => (
                         <div
                           key={idx}
                           className="flex justify-between py-1.5 border-b border-neutral-100 font-mono text-[11px]"
@@ -428,7 +519,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-base font-bold text-neutral-950">Produk Serupa</h3>
-                <p className="text-xs text-neutral-500">Pilihan lain dalam kategori {product.category.replace('-', ' ')}</p>
+                <p className="text-xs text-neutral-500">Pilihan lain dalam kategori {product.category.name}</p>
               </div>
             </div>
 

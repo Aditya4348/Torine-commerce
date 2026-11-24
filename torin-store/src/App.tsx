@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CATEGORIES, PRODUCTS } from './data/dummyData';
+import { CATEGORIES } from './data/dummyData';
 import type { FilterState, Product } from './types';
 import { Header } from './components/Header';
 import { Banner } from './components/Banner';
@@ -19,14 +19,13 @@ const INITIAL_FILTERS: FilterState = {
   selectedCategory: 'all',
   minPrice: 0,
   maxPrice: 3000000,
-  minRating: 0,
   onlyInStock: false,
   sortBy: 'featured',
 };
 
 function App() {
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -36,11 +35,25 @@ function App() {
     queryFn: storeApi.getCategories,
   })
 
+  const DataProduct = useQuery({
+    queryKey: ["product", filters],
+    queryFn: () =>
+      storeApi.getProducts({
+        search: filters.searchQuery.trim() || undefined,
+        category: filters.selectedCategory === 'all' ? undefined : filters.selectedCategory,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        onlyInStock: filters.onlyInStock,
+        sortBy: filters.sortBy,
+      }),
+  })
+  const products = DataProduct.data?.data ?? [];
+
   // Handle filter changes
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     // If user searches while on a product detail page, go back to catalog to see results
-    if (newFilters.searchQuery !== undefined && selectedProduct) {
-      setSelectedProduct(null);
+    if (newFilters.searchQuery !== undefined && selectedProductId) {
+      setSelectedProductId(null);
     }
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
@@ -91,50 +104,6 @@ function App() {
     return cartItems.reduce((acc, item) => acc + item.quantity, 0);
   }, [cartItems]);
 
-  // Filter & Sort Logic
-  const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
-      // Search query check
-      if (filters.searchQuery.trim()) {
-        const query = filters.searchQuery.toLowerCase();
-        const matchesName = product.name.toLowerCase().includes(query);
-        const matchesDesc = product.description.toLowerCase().includes(query);
-        const matchesCat = product.category.toLowerCase().includes(query);
-        if (!matchesName && !matchesDesc && !matchesCat) return false;
-      }
-
-      // Category check
-      if (filters.selectedCategory !== 'all' && product.category !== filters.selectedCategory) {
-        return false;
-      }
-
-      // Price range check
-      if (product.price > filters.maxPrice) {
-        return false;
-      }
-
-      // Minimum rating check
-      if (filters.minRating > 0 && product.rating < filters.minRating) {
-        return false;
-      }
-
-      // Stock status check
-      if (filters.onlyInStock && !product.inStock) {
-        return false;
-      }
-
-      return true;
-    }).sort((a, b) => {
-      if (filters.sortBy === 'price-asc') return a.price - b.price;
-      if (filters.sortBy === 'price-desc') return b.price - a.price;
-      if (filters.sortBy === 'rating') return b.rating - a.rating;
-      // Default: featured
-      if (a.isPopular && !b.isPopular) return -1;
-      if (!a.isPopular && b.isPopular) return 1;
-      return 0;
-    });
-  }, [filters]);
-
   const scrollToProducts = () => {
     const el = document.getElementById('products-section');
     if (el) {
@@ -151,20 +120,20 @@ function App() {
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onLogoClick={() => {
-          setSelectedProduct(null);
+          setSelectedProductId(null);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
       {/* Main Content Area: Switch between Detail Page and Catalog */}
-      {selectedProduct ? (
+      {selectedProductId ? (
         <ProductDetail
-          product={selectedProduct}
-          allProducts={PRODUCTS}
-          onBack={() => setSelectedProduct(null)}
+          productId={selectedProductId}
+          allProducts={products}
+          onBack={() => setSelectedProductId(null)}
           onAddToCart={handleAddToCart}
           onSelectProduct={(p) => {
-            setSelectedProduct(p);
+            setSelectedProductId(p.id);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
@@ -197,27 +166,35 @@ function App() {
               {/* Kolom Kiri: Sidebar Filter */}
               <div className={`lg:block ${isMobileFilterOpen ? 'block' : 'hidden'} lg:col-span-1`}>
                 <FilterSidebar
-                  categories={CATEGORIES}
+                  categories={DataCategory.data}
                   filters={filters}
                   onFilterChange={handleFilterChange}
                   onResetFilters={handleResetFilters}
-                  totalProductsCount={filteredProducts.length}
+                  totalProductsCount={DataProduct.data?.meta.total ?? 0}
                 />
               </div>
 
               {/* Kolom Kanan: List Barang / Grid Produk */}
               <div className="lg:col-span-3">
-                <ProductGrid
-                  products={filteredProducts}
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  onResetFilters={handleResetFilters}
-                  onAddToCart={(p) => handleAddToCart(p, 1)}
-                  onSelectProduct={(p) => {
-                    setSelectedProduct(p);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                />
+                {DataProduct.isPending ? (
+                  <p className="py-12 text-center text-sm text-neutral-500">Memuat produk...</p>
+                ) : DataProduct.isError ? (
+                  <p role="alert" className="py-12 text-center text-sm text-red-600">
+                    Gagal memuat produk: {DataProduct.error.message}
+                  </p>
+                ) : (
+                  <ProductGrid
+                    products={products}
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onResetFilters={handleResetFilters}
+                    onAddToCart={(p) => handleAddToCart(p, 1)}
+                    onSelectProduct={(p) => {
+                      setSelectedProductId(p.id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  />
+                )}
               </div>
             </div>
           </main>
@@ -229,9 +206,9 @@ function App() {
 
       {/* 6. Floating AI Chat Button (Bottom Right) */}
       <FloatingAiChat
-        products={PRODUCTS}
+        products={products}
         onSelectProduct={(p) => {
-          setSelectedProduct(p);
+          setSelectedProductId(p.id);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
