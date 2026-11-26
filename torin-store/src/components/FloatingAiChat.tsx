@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Bot, ArrowRight } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 import type { Product, ChatMessage } from '../types';
 import { formatRupiah } from '../utils/formatters';
+import { storeApi, type ChatRequestMessage } from '../services/storeApi';
 
 interface FloatingAiChatProps {
   products: Product[];
@@ -22,8 +24,12 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
       timestamp: 'Baru saja',
     },
   ]);
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const askAssistantMutation = useMutation({
+    mutationFn: (chatMessages: ChatRequestMessage[]) => storeApi.askAssistant(chatMessages),
+  });
+  const isTyping = askAssistantMutation.isPending;
 
   useEffect(() => {
     if (isOpen) {
@@ -38,9 +44,9 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
     'Berapa lama estimasi pengiriman?',
   ];
 
-  const handleSend = (textToSend?: string) => {
-    const query = textToSend || input;
-    if (!query.trim()) return;
+  const handleSend = async (textToSend?: string) => {
+    const query = (textToSend ?? input).trim();
+    if (!query || askAssistantMutation.isPending) return;
 
     const userMsg: ChatMessage = {
       id: String(Date.now()),
@@ -50,44 +56,38 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setInput('');
-    setIsTyping(true);
+    setInput('');
 
-    // Realistic intelligent matching with dummy products
-    setTimeout(() => {
-      let reply = '';
-      let matchedIds: string[] = [];
-      const lower = query.toLowerCase();
+    const conversation: ChatRequestMessage[] = [
+      ...messages.map((message) => ({
+        role: message.sender,
+        content: message.text,
+      })),
+      { role: 'user', content: query },
+    ];
 
-      if (lower.includes('500') || lower.includes('murah') || lower.includes('budget')) {
-        const under500 = products.filter((p) => p.price <= 500000);
-        matchedIds = under500.map((p) => p.id);
-        reply = `Terdapat ${under500.length} barang di bawah Rp 500.000 dengan spesifikasi tahan lama, antara lain kemeja katun linen, stand laptop aluminium, atau diffuser keramik:`;
-      } else if (lower.includes('headphone') || lower.includes('audio') || lower.includes('kerja')) {
-        const audio = products.filter((p) => p.category === 'elektronik');
-        matchedIds = audio.slice(0, 2).map((p) => p.id);
-        reply = 'Untuk fokus kerja, saya sarankan Over-Ear NC-40 (ANC 32dB) atau Keyboard Mekanikal 75% dengan switch tactile yang senyap untuk kantor:';
-      } else if (lower.includes('sepatu') || lower.includes('sneaker')) {
-        const shoes = products.filter((p) => p.category === 'sepatu');
-        matchedIds = shoes.map((p) => p.id);
-        reply = 'Berikut pilihan alas kaki dengan konstruksi sol empuk dan jahitan strobel:';
-      } else if (lower.includes('kirim') || lower.includes('ongkir') || lower.includes('garansi')) {
-        reply = 'Pengiriman gratis ke seluruh Indonesia untuk pesanan di atas Rp 300.000. Pesanan sebelum 15:00 WIB dikirim pada hari yang sama dengan garansi retur unit 14 hari.';
-      } else {
-        reply = `Saya mencatat pertanyaan Anda tentang "${query}". Anda dapat mengecek langsung detail katalog di bawah atau menggunakan filter pencarian.`;
-      }
-
+    try {
+      const response = await askAssistantMutation.mutateAsync(conversation);
       const botMsg: ChatMessage = {
-        id: String(Date.now() + 1),
+        id: String(Date.now()),
         sender: 'assistant',
-        text: reply,
+        text: response.text,
         timestamp: 'Sekarang',
-        suggestedProducts: matchedIds,
       };
-
       setMessages((prev) => [...prev, botMsg]);
-      setIsTyping(false);
-    }, 600);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Terjadi kesalahan yang tidak diketahui.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: String(Date.now()),
+          sender: 'assistant',
+          text: `Maaf, pesan gagal dikirim. ${errorMessage}`,
+          timestamp: 'Sekarang',
+        },
+      ]);
+    }
   };
 
   return (
@@ -151,7 +151,7 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
                               className="flex items-center gap-2 p-1.5 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer border border-neutral-200/60"
                             >
                               <img
-                                src={item.image}
+                                src={item.images[0]?.image_url ?? ''}
                                 alt={item.name}
                                 className="w-8 h-8 rounded-lg object-cover"
                               />
@@ -160,7 +160,7 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
                                   {item.name}
                                 </p>
                                 <p className="text-[10px] font-mono text-neutral-500">
-                                  {formatRupiah(item.price)}
+                                  {formatRupiah(item.sale_price ?? item.base_price)}
                                 </p>
                               </div>
                               <ArrowRight className="w-3.5 h-3.5 text-neutral-400 mr-1" />
@@ -193,6 +193,7 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
               <button
                 key={idx}
                 onClick={() => handleSend(qp)}
+                disabled={isTyping}
                 className="whitespace-nowrap text-[10px] font-medium px-2.5 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors shrink-0 cursor-pointer"
               >
                 {qp}
@@ -212,12 +213,13 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              disabled={isTyping}
               placeholder="Tanyakan produk atau rekomendasi..."
               className="flex-1 text-xs px-3 py-2 bg-neutral-100 rounded-xl focus:outline-none focus:bg-white focus:ring-1 focus:ring-neutral-900 border border-transparent transition-all"
             />
             <button
               type="submit"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isTyping}
               className="p-2 rounded-xl bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-40 transition-colors cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />

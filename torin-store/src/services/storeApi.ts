@@ -35,6 +35,15 @@ export interface CreateOrderPayload {
   }[];
 }
 
+export interface ChatRequestMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  text: string;
+}
+
 export const storeApi = {
   
   getCategories: async (): Promise<Category[]> => {
@@ -54,6 +63,16 @@ export const storeApi = {
 
   createOrder: async (payload: CreateOrderPayload) => {
     const { data } = await apiClient.post('/orders', payload);
+    return data;
+  },
+
+
+  askAssistant: async (messages: ChatRequestMessage[]): Promise<ChatResponse> => {
+    const { data } = await apiClient.post<ChatResponse>(
+      '/chat',
+      { messages },
+      { timeout: 70_000 },
+    );
     return data;
   },
 };
