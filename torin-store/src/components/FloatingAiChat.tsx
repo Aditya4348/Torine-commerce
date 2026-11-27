@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, ArrowRight } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
-import type { Product, ChatMessage } from '../types';
-import { formatRupiah } from '../utils/formatters';
-import { storeApi, type ChatRequestMessage } from '../services/storeApi';
+import React, { useState, useRef, useEffect } from "react";
+import { MessageSquare, X, Send, Bot, ArrowRight } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import type { Product, ChatMessage } from "../types";
+import { formatRupiah } from "../utils/formatters";
+import { storeApi, type ChatRequestMessage } from "../services/storeApi";
+import ReactMarkdown from "react-markdown";
 
 interface FloatingAiChatProps {
   products: Product[];
@@ -15,33 +16,34 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
   onSelectProduct,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: 'welcome',
-      sender: 'assistant',
-      text: 'Halo. Saya asisten katalog Torin. Ada yang bisa saya bantu terkait spesifikasi produk, rekomendasi budget, atau pengiriman?',
-      timestamp: 'Baru saja',
+      id: "welcome",
+      sender: "assistant",
+      text: "Halo. Saya asisten katalog Torin. Ada yang bisa saya bantu terkait spesifikasi produk, rekomendasi budget, atau pengiriman?",
+      timestamp: "Baru saja",
     },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const askAssistantMutation = useMutation({
-    mutationFn: (chatMessages: ChatRequestMessage[]) => storeApi.askAssistant(chatMessages),
+    mutationFn: (chatMessages: ChatRequestMessage[]) =>
+      storeApi.askAssistant(chatMessages),
   });
   const isTyping = askAssistantMutation.isPending;
 
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
 
   const quickPrompts = [
-    'Rekomendasi budget di bawah 500rb',
-    'Headphone yang bagus untuk kerja',
-    'Sepatu santai harian',
-    'Berapa lama estimasi pengiriman?',
+    "Rekomendasi budget di bawah 500rb",
+    "Headphone yang bagus untuk kerja",
+    "Sepatu santai harian",
+    "Berapa lama estimasi pengiriman?",
   ];
 
   const handleSend = async (textToSend?: string) => {
@@ -50,48 +52,53 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
 
     const userMsg: ChatMessage = {
       id: String(Date.now()),
-      sender: 'user',
+      sender: "user",
       text: query,
-      timestamp: 'Sekarang',
+      timestamp: "Sekarang",
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setInput('');
+    setInput("");
 
     const conversation: ChatRequestMessage[] = [
       ...messages.map((message) => ({
         role: message.sender,
         content: message.text,
       })),
-      { role: 'user', content: query },
+      { role: "user", content: query },
     ];
 
     try {
       const response = await askAssistantMutation.mutateAsync(conversation);
       const botMsg: ChatMessage = {
         id: String(Date.now()),
-        sender: 'assistant',
+        sender: "assistant",
         text: response.text,
-        timestamp: 'Sekarang',
+        timestamp: "Sekarang",
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Terjadi kesalahan yang tidak diketahui.';
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan yang tidak diketahui.";
       setMessages((prev) => [
         ...prev,
         {
           id: String(Date.now()),
-          sender: 'assistant',
+          sender: "assistant",
           text: `Maaf, pesan gagal dikirim. ${errorMessage}`,
-          timestamp: 'Sekarang',
+          timestamp: "Sekarang",
         },
       ]);
     }
   };
 
   return (
-    <aside aria-label="AI Chat Assistant" className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <aside
+      aria-label="AI Chat Assistant"
+      className="fixed bottom-6 right-6 z-50 flex flex-col items-end"
+    >
       {/* Expanded Chat Window */}
       {isOpen && (
         <div className="mb-4 w-90 sm:w-96 bg-white rounded-3xl border border-neutral-200/90 shadow-2xl overflow-hidden flex flex-col h-[520px] animate-in fade-in slide-in-from-bottom-5 duration-200">
@@ -102,7 +109,9 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
                 <Bot className="w-4 h-4 text-neutral-200" />
               </div>
               <div className="text-left">
-                <h3 className="text-xs font-bold tracking-tight">Torin AI Concierge</h3>
+                <h3 className="text-xs font-bold tracking-tight">
+                  Torin AI Concierge
+                </h3>
                 <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Siap Membantu
@@ -120,20 +129,51 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs text-left bg-neutral-50/50">
             {messages.map((m) => {
-              const isUser = m.sender === 'user';
+              const isUser = m.sender === "user";
               return (
                 <div
                   key={m.id}
-                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                  className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
                 >
                   <div
                     className={`max-w-[85%] rounded-2xl p-3 leading-relaxed ${
                       isUser
-                        ? 'bg-neutral-900 text-white rounded-br-xs'
-                        : 'bg-white text-neutral-800 border border-neutral-200/80 rounded-bl-xs shadow-xs'
+                        ? "bg-neutral-900 text-white rounded-br-xs"
+                        : "bg-white text-neutral-800 border border-neutral-200/80 rounded-bl-xs shadow-xs"
                     }`}
                   >
-                    <p>{m.text}</p>
+                    {/* Ganti bagian <p>{m.text}</p> dengan blok kondisi di bawah ini */}
+                    {isUser ? (
+                      <p className="whitespace-pre-wrap">{m.text}</p>
+                    ) : (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => (
+                            <p className="mb-2 last:mb-0">{children}</p>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="list-disc pl-4 mb-2 last:mb-0 space-y-1">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="list-decimal pl-4 mb-2 last:mb-0 space-y-1">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="pl-0.5">{children}</li>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-neutral-950">
+                              {children}
+                            </strong>
+                          ),
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                    )}
 
                     {/* Render suggested products inline if returned */}
                     {m.suggestedProducts && m.suggestedProducts.length > 0 && (
@@ -151,7 +191,7 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
                               className="flex items-center gap-2 p-1.5 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer border border-neutral-200/60"
                             >
                               <img
-                                src={item.images[0]?.image_url ?? ''}
+                                src={item.images[0]?.image_url ?? ""}
                                 alt={item.name}
                                 className="w-8 h-8 rounded-lg object-cover"
                               />
@@ -160,7 +200,9 @@ export const FloatingAiChat: React.FC<FloatingAiChatProps> = ({
                                   {item.name}
                                 </p>
                                 <p className="text-[10px] font-mono text-neutral-500">
-                                  {formatRupiah(item.sale_price ?? item.base_price)}
+                                  {formatRupiah(
+                                    item.sale_price ?? item.base_price,
+                                  )}
                                 </p>
                               </div>
                               <ArrowRight className="w-3.5 h-3.5 text-neutral-400 mr-1" />

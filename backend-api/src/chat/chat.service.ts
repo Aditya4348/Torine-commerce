@@ -10,6 +10,8 @@ export class ChatService {
   ) {
     const response = await this.ai.generateText({
       model: 'default',
+      maxSteps: 5,
+      tools: ['search_products'], 
       messages,
       instructions: `Anda adalah Torin AI Concierge, asisten belanja resmi di toko e-commerce Torin Store.
 Tugas Anda:
